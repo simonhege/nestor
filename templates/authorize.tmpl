@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>{{- $page := .Client.LoginPage -}}
+    <meta charset="UTF-8">
+    <title>{{ $page.Title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 320px;
+        }
+        h2 {
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .connector {
+            padding: 0.75rem;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            text-align: center;
+            text-decoration: none;
+        }
+        {{ range .Client.Connectors }}
+        .connector-{{.ID}} {
+            background: {{ .Color }};
+        }
+        .connector-{{.ID}}:hover{
+            background: {{ .ColorHover }};
+        }
+        {{ end}} 
+    </style>
+</head>
+<body>
+    <form class="login-container" method="POST" action="/authorize">
+        <h2>{{ $page.Title }}</h2>
+
+        <input type="email" name="email" placeholder="{{ $page.Email }}" required>
+        <input type="password" name="password" placeholder="{{ $page.Password }}" required>
+
+        <!-- CSRF Token -->
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+        <button type="submit">{{ $page.Submit }}</button>
+    </form>
+
+    <div class="login-container" style="margin-top:1rem; display: flex; flex-direction: column; gap: 0.5rem">
+        {{ range .Client.Connectors }}
+        <a href="/{{.ID}}/login" class="connector connector-{{.ID}}">
+            {{ .IconHTML }}
+            {{ $page.ConnectWith }} {{ .Name }}
+        </a>
+        {{ end }}
+    </div>
+</body>
+</html>
