@@ -24,6 +24,7 @@ jobs:
           images: rg.fr-par.scw.cloud/ns-solagratia-prd/nestor
 
       - name: Login to private registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: rg.fr-par.scw.cloud/ns-solagratia-prd
