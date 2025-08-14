@@ -26,7 +26,6 @@ func (p privateKeyStore) All() ([]privatekeys.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var keys []privatekeys.PrivateKey
 	for rows.Next() {
@@ -36,6 +35,10 @@ func (p privateKeyStore) All() ([]privatekeys.PrivateKey, error) {
 		}
 		keys = append(keys, key)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
 	return keys, nil
 }
 

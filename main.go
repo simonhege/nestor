@@ -37,7 +37,11 @@ func main() {
 			slog.ErrorContext(ctx, "failed to connect to Couchbase", "error", err)
 			return
 		}
-		defer closeFunc()
+		defer func() {
+			if err := closeFunc(); err != nil {
+				slog.ErrorContext(ctx, "failed to close Couchbase connection", "error", err)
+			}
+		}()
 
 		accountStore, err = couchbase.NewAccountStore(scope)
 		if err != nil {

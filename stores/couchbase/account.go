@@ -3,7 +3,6 @@ package couchbase
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/couchbase/gocb/v2"
 	"github.com/simonhege/nestor/account"
@@ -35,14 +34,9 @@ func (a *accountStore) GetByEmail(ctx context.Context, email string) (*account.A
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, fmt.Errorf("account not found")
-	}
 
 	var acct account.Account
-	if err := rows.Row(&acct); err != nil {
+	if err := rows.One(&acct); err != nil {
 		return nil, err
 	}
 	return &acct, nil
