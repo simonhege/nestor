@@ -14,7 +14,7 @@ import (
 	"github.com/simonhege/nestor/signed"
 )
 
-type OAuthParams struct {
+type oAuthParams struct {
 	ClientID            string
 	RedirectURI         string
 	ResponseType        string
@@ -27,7 +27,7 @@ type OAuthParams struct {
 func (a *app) handleAuthorize(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 
-	oauthParams := OAuthParams{
+	oauthParams := oAuthParams{
 		ClientID:            req.URL.Query().Get("client_id"),
 		RedirectURI:         req.URL.Query().Get("redirect_uri"),
 		ResponseType:        req.URL.Query().Get("response_type"),
@@ -67,8 +67,9 @@ func (a *app) handleAuthorize(w http.ResponseWriter, req *http.Request) {
 	csrf.SetCookie(w, csrfToken)
 
 	err = executeTemplate(w, "authorize.tmpl", map[string]any{
-		"CSRFToken": csrfToken,
-		"Client":    client,
+		"CSRFToken":  csrfToken,
+		"Client":     client,
+		"Connectors": a.connectors,
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to render authorize template", "error", err)
@@ -88,7 +89,7 @@ func (a *app) handlePostAuthorize(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Get OAuth parameters from the cookie
-	var oauthParams OAuthParams
+	var oauthParams oAuthParams
 	if err := signed.ReadCookie(req, "oauth_params", &oauthParams); err != nil {
 		slog.WarnContext(ctx, "Failed to decode OAuth params", "error", err)
 		http.Error(w, "Bad request", http.StatusBadRequest)
@@ -123,9 +124,9 @@ func (a *app) handlePostAuthorize(w http.ResponseWriter, req *http.Request) {
 	a.handleRedirect(ctx, w, req, oauthParams, acc)
 }
 
-func (a *app) handleRedirect(ctx context.Context, w http.ResponseWriter, req *http.Request, oauthParams OAuthParams, acc *account.Account) {
+func (a *app) handleRedirect(ctx context.Context, w http.ResponseWriter, req *http.Request, oauthParams oAuthParams, acc *account.Account) {
 
-	authData := AuthorizationData{
+	authData := authorizationData{
 		ClientID:            oauthParams.ClientID,
 		Code:                rand.Text(),
 		CodeChallenge:       oauthParams.CodeChallenge,

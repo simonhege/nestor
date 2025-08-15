@@ -59,7 +59,7 @@
             text-align: center;
             text-decoration: none;
         }
-        {{ range .Client.Connectors }}
+        {{ range .Connectors }}
         .connector-{{.ID}} {
             background: {{ .Color }};
         }
@@ -83,7 +83,7 @@
     </form>
 
     <div class="login-container" style="margin-top:1rem; display: flex; flex-direction: column; gap: 0.5rem">
-        {{ range .Client.Connectors }}
+        {{ range .Connectors }}
         <a href="/{{.ID}}/login" class="connector connector-{{.ID}}">
             {{ .IconHTML }}
             {{ $page.ConnectWith }} {{ .Name }}

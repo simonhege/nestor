@@ -18,23 +18,23 @@ func (a *app) handleLogin(w http.ResponseWriter, req *http.Request) {
 	connectorID := req.PathValue("connector")
 
 	// Get OAuth parameters from the cookie
-	var oauthParams OAuthParams
+	var oauthParams oAuthParams
 	if err := signed.ReadCookie(req, "oauth_params", &oauthParams); err != nil {
 		slog.WarnContext(ctx, "Failed to decode OAuth params", "error", err)
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
-	client, err := a.getClient(ctx, oauthParams.ClientID)
+	_, err := a.getClient(ctx, oauthParams.ClientID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to get client", "client_id", oauthParams.ClientID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	connector := client.GetConnector(connectorID)
+	connector := a.getConnector(connectorID)
 	if connector == nil {
-		slog.ErrorContext(ctx, "Connector not found", "client_id", oauthParams.ClientID, "connector_id", connectorID)
+		slog.ErrorContext(ctx, "Connector not found", "connector_id", connectorID)
 		http.Error(w, "Connector not found", http.StatusNotFound)
 		return
 	}
@@ -71,21 +71,21 @@ func (a *app) handleCallback(w http.ResponseWriter, req *http.Request) {
 	connectorID := req.PathValue("connector")
 
 	// Get OAuth parameters from the cookie
-	var oauthParams OAuthParams
+	var oauthParams oAuthParams
 	if err := signed.ReadCookie(req, "oauth_params", &oauthParams); err != nil {
 		slog.WarnContext(ctx, "Failed to decode OAuth params", "error", err)
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
-	client, err := a.getClient(ctx, oauthParams.ClientID)
+	_, err := a.getClient(ctx, oauthParams.ClientID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to get client", "client_id", oauthParams.ClientID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	connector := client.GetConnector(connectorID)
+	connector := a.getConnector(connectorID)
 	if connector == nil {
 		slog.ErrorContext(ctx, "Connector not found", "client_id", oauthParams.ClientID, "connector_id", connectorID)
 		http.Error(w, "Connector not found", http.StatusNotFound)
@@ -148,17 +148,16 @@ func (a *app) handleCallback(w http.ResponseWriter, req *http.Request) {
 
 	slog.InfoContext(ctx, "User authenticated", "claims", claims)
 
-	accountID := connectorID + "|" + idToken.Subject
-
-	acc, err := a.accountStore.GetById(ctx, accountID)
+	acc, err := a.accountStore.GetByExternalRef(ctx, connectorID, idToken.Subject)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve account", "accountID", accountID, "error", err)
+		slog.ErrorContext(ctx, "Failed to retrieve account", "connectorID", connectorID, "subject", idToken.Subject, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	if acc == nil {
-		slog.InfoContext(ctx, "No account found, creating new")
+		accountID := rand.Text() // Generate a random ID
+		slog.InfoContext(ctx, "No account found, creating new", "accountID", accountID, "connectorID", connectorID, "subject", idToken.Subject)
 		tNow := time.Now()
 		acc = &account.Account{
 			ID:        accountID,
@@ -168,6 +167,12 @@ func (a *app) handleCallback(w http.ResponseWriter, req *http.Request) {
 			CreatedAt: tNow,
 			UpdatedAt: tNow,
 			Status:    account.StatusActive,
+			ExternalRefs: []account.ExternalRef{
+				{
+					Connector: connectorID,
+					Sub:       idToken.Subject,
+				},
+			},
 		}
 		if err := a.accountStore.Put(ctx, *acc); err != nil {
 			slog.ErrorContext(ctx, "Failed to create account", "error", err)
@@ -175,6 +180,7 @@ func (a *app) handleCallback(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	} else {
+		slog.InfoContext(ctx, "Account found", "accountID", acc.ID, "connectorID", connectorID, "subject", idToken.Subject)
 		updateNeeded := false
 		if acc.Email != claims.Email {
 			acc.Email = claims.Email

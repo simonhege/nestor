@@ -22,22 +22,22 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 	b, _ := httputil.DumpRequest(req, true)
 	slog.DebugContext(ctx, "token request received", "request", string(b))
 
-	client_id := req.FormValue("client_id")
+	clientID := req.FormValue("client_id")
 	// redirect_uri := req.FormValue("redirect_uri") // TODO why do we receive a redirect uri?
-	grant_type := req.FormValue("grant_type")
+	grantType := req.FormValue("grant_type")
 	code := req.FormValue("code")
-	code_verifier := req.FormValue("code_verifier")
+	codeVerifier := req.FormValue("code_verifier")
 
-	if grant_type != "authorization_code" {
-		slog.WarnContext(ctx, "Unsupported grant_type", "client_id", client_id, "grant_type", grant_type)
+	if grantType != "authorization_code" {
+		slog.WarnContext(ctx, "Unsupported grant_type", "client_id", clientID, "grant_type", grantType)
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	// Retrieve the authorization data
-	var authData AuthorizationData
+	var authData authorizationData
 	if err := signed.ReadCookie(req, "auth_data", &authData); err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve authorization data", "client_id", client_id, "code", code)
+		slog.ErrorContext(ctx, "Failed to retrieve authorization data", "client_id", clientID, "code", code)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -45,14 +45,14 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 	// Delete the cookie to prevent reuse
 	signed.DeleteCookie(w, "auth_data")
 
-	if authData.ClientID != client_id {
-		slog.WarnContext(ctx, "Incorrect client id", "client_id", client_id, "authData.ClientID", authData.ClientID)
+	if authData.ClientID != clientID {
+		slog.WarnContext(ctx, "Incorrect client id", "client_id", clientID, "authData.ClientID", authData.ClientID)
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	// Compute the hash from the generated code and compare
-	codeChallengeResult, err := a.computeCodeChallenge(ctx, authData.CodeChallengeMethod, code_verifier)
+	codeChallengeResult, err := a.computeCodeChallenge(ctx, authData.CodeChallengeMethod, codeVerifier)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to compute code challenge", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -84,9 +84,9 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Retrieve the client information
-	client, err := a.getClient(ctx, client_id)
+	client, err := a.getClient(ctx, clientID)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve client", "client_id", client_id, "error", err)
+		slog.ErrorContext(ctx, "Failed to retrieve client", "client_id", clientID, "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -98,33 +98,33 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	id_token, err := a.createSignedToken(ctx, client_id, acc)
+	idToken, err := a.createSignedToken(ctx, clientID, acc)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create signed token", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	resp := TokenResponse{
+	resp := tokenResponse{
 		AccessToken: accessToken,
 		TokenType:   "Bearer",
 		ExpiresIn:   3600, // 1 hour
-		IDToken:     id_token,
+		IDToken:     idToken,
 	}
 
 	server.RenderJSON(w, resp)
 }
 
-func (a *app) computeCodeChallenge(context context.Context, method string, generated_code string) (string, error) {
+func (a *app) computeCodeChallenge(context context.Context, method string, generatedCode string) (string, error) {
 	switch method {
 	case "S256":
-		hash := sha256.Sum256([]byte(generated_code))
+		hash := sha256.Sum256([]byte(generatedCode))
 		return base64.RawURLEncoding.EncodeToString(hash[:]), nil
 	}
 	return "", fmt.Errorf("unsupported code challenge method '%s'", method)
 }
 
-type TokenResponse struct {
+type tokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`

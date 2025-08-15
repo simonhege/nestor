@@ -6,18 +6,18 @@ import (
 	"github.com/simonhege/server"
 )
 
-type OpenIDConfiguration struct {
+type openIDConfiguration struct {
 	Issuer                           string   `json:"issuer"`
 	AuthorizationEndpoint            string   `json:"authorization_endpoint"`
 	TokenEndpoint                    string   `json:"token_endpoint"`
 	UserinfoEndpoint                 string   `json:"userinfo_endpoint"`
-	JwksUri                          string   `json:"jwks_uri"`
+	JwksURI                          string   `json:"jwks_uri"`
 	ScopesSupported                  []string `json:"scopes_supported"`
 	ResponseTypesSupported           []string `json:"response_types_supported"`
 	ResponseModesSupported           []string `json:"response_modes_supported"`
 	GrantTypesSupported              []string `json:"grant_types_supported"`
 	SubjectTypesSupported            []string `json:"subject_types_supported"`
-	IdTokenSigningAlgValuesSupported []string `json:"id_token_signing_alg_values_supported"`
+	IDTokenSigningAlgValuesSupported []string `json:"id_token_signing_alg_values_supported"`
 	ClaimsSupported                  []string `json:"claims_supported"`
 }
 
@@ -25,13 +25,13 @@ func (a *app) handleOpenIDConfiguration(w http.ResponseWriter, req *http.Request
 	server.RenderJSON(w, a.oidcConfig)
 }
 
-func NewOpenIDConfiguration(issuer string, baseURL string) *OpenIDConfiguration {
-	return &OpenIDConfiguration{
+func newOpenIDConfiguration(issuer string, baseURL string) *openIDConfiguration {
+	return &openIDConfiguration{
 		Issuer:                issuer,
 		AuthorizationEndpoint: baseURL + "/authorize",
 		TokenEndpoint:         baseURL + "/token",
 		UserinfoEndpoint:      baseURL + "/userinfo",
-		JwksUri:               baseURL + "/.well-known/jwks.json",
+		JwksURI:               baseURL + "/.well-known/jwks.json",
 		ScopesSupported: []string{
 			"openid",
 			"email",
@@ -52,7 +52,7 @@ func NewOpenIDConfiguration(issuer string, baseURL string) *OpenIDConfiguration 
 		SubjectTypesSupported: []string{
 			"public", // TODO switch to "pairwise" for better privacy
 		},
-		IdTokenSigningAlgValuesSupported: []string{
+		IDTokenSigningAlgValuesSupported: []string{
 			"RS256",
 		},
 		ClaimsSupported: []string{

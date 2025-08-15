@@ -3,9 +3,9 @@ package connector
 import "os"
 
 func isMicrosoftConnectorEnabled() bool {
-	return os.Getenv("CONNECTOR_MICROSOFT_ISSUER") != "" &&
-		os.Getenv("CONNECTOR_MICROSOFT_CLIENT_ID") != "" &&
-		os.Getenv("CONNECTOR_MICROSOFT_CLIENT_SECRET") != ""
+	return os.Getenv("NESTOR_CONNECTOR_MICROSOFT_ISSUER") != "" &&
+		os.Getenv("NESTOR_CONNECTOR_MICROSOFT_CLIENT_ID") != "" &&
+		os.Getenv("NESTOR_CONNECTOR_MICROSOFT_CLIENT_SECRET") != ""
 }
 
 func microsoftConnector() C {
@@ -18,9 +18,9 @@ func microsoftConnector() C {
 		Color:      "hsl(50, 100%, 40%)",
 		ColorHover: "hsl(50, 100%, 25%)",
 		Config: Config{
-			Issuer:       os.Getenv("CONNECTOR_MICROSOFT_ISSUER"),
-			ClientID:     os.Getenv("CONNECTOR_MICROSOFT_CLIENT_ID"),
-			ClientSecret: os.Getenv("CONNECTOR_MICROSOFT_CLIENT_SECRET"),
+			Issuer:       os.Getenv("NESTOR_CONNECTOR_MICROSOFT_ISSUER"),
+			ClientID:     os.Getenv("NESTOR_CONNECTOR_MICROSOFT_CLIENT_ID"),
+			ClientSecret: os.Getenv("NESTOR_CONNECTOR_MICROSOFT_CLIENT_SECRET"),
 		},
 	}
 }

@@ -14,9 +14,15 @@ type Account struct {
 	Picture      string        `json:"picture"`
 	Status       AccountStatus `json:"status"`
 	PasswordHash []byte        `json:"password_hash,omitempty"` // Use nil if no password is set
+	ExternalRefs []ExternalRef `json:"external_refs,omitempty"` // References to external accounts
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ExternalRef struct {
+	Connector string `json:"connector"`
+	Sub       string `json:"sub"`
 }
 
 type AccountStatus string
@@ -35,7 +41,9 @@ func (a *Account) CheckPassword(password string) bool {
 }
 
 type Store interface {
-	GetByEmail(ctx context.Context, email string) (*Account, error)
 	GetById(ctx context.Context, id string) (*Account, error)
+	GetByEmail(ctx context.Context, email string) (*Account, error)
+	GetByExternalRef(ctx context.Context, connector, sub string) (*Account, error)
 	Put(ctx context.Context, account Account) error
+	Delete(ctx context.Context, id string) error
 }

@@ -67,11 +67,12 @@ func main() {
 	a := &app{
 		baseURL:         baseURL,
 		jwks:            jwkset.NewMemoryStorage(),
-		oidcConfig:      NewOpenIDConfiguration(os.Getenv("ISSUER"), baseURL),
-		clients:         make(map[string]Client),
+		oidcConfig:      newOpenIDConfiguration(os.Getenv("ISSUER"), baseURL),
+		clients:         make(map[string]client),
 		accountStore:    accountStore,
 		privateKeyStore: privateKeyStore,
 	}
+	a.initConnectors()
 	a.initClients(ctx)
 	if err := a.initKeys(ctx); err != nil {
 		slog.ErrorContext(ctx, "failed to initialize keys", "error", err)
@@ -86,6 +87,9 @@ func main() {
 	s.HandleFunc("POST /authorize", a.handlePostAuthorize)
 	s.HandleFunc("POST /token", a.handleToken)
 
+	// Accounts management endpoints
+	s.HandleFunc("DELETE /accounts/me", a.handleDeleteMyAccount)
+
 	// Connectors endpoints
 	s.HandleFunc("GET /{connector}/login", a.handleLogin)
 	s.HandleFunc("GET /{connector}/callback", a.handleCallback)
@@ -98,7 +102,7 @@ func main() {
 	}
 }
 
-func GetenvOrDefault(key, defaultValue string) string {
+func getenvOrDefault(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {
 		return defaultValue
@@ -106,21 +110,33 @@ func GetenvOrDefault(key, defaultValue string) string {
 	return value
 }
 
+func (a *app) initConnectors() {
+	a.connectors = connector.ReadConfig()
+}
+
+func (a *app) getConnector(connectorID string) *connector.C {
+	for _, connector := range a.connectors {
+		if connector.ID == connectorID {
+			return &connector
+		}
+	}
+	return nil
+}
+
 func (a *app) initClients(ctx context.Context) {
 	// TODO: allow multiple clients
-	clientId := os.Getenv("NESTOR_CLIENT_ID")
-	a.clients = map[string]Client{
-		clientId: {
-			ClientID:                 clientId,
+	clientID := os.Getenv("NESTOR_CLIENT_ID")
+	a.clients = map[string]client{
+		clientID: {
+			ClientID:                 clientID,
 			RedirectURIs:             strings.Split(os.Getenv("NESTOR_REDIRECT_URIS"), ","),
 			DefaultResourceIndicator: os.Getenv("NESTOR_DEFAULT_RESOURCE_INDICATOR"),
-			Connectors:               connector.ReadConfig(),
-			LoginPage: LoginPage{
-				Title:       GetenvOrDefault("NESTOR_LABELS_LOGIN_TITLE", "Se connecter à "+clientId),
-				Email:       GetenvOrDefault("NESTOR_LABELS_LOGIN_EMAIL", "Email"),
-				Password:    GetenvOrDefault("NESTOR_LABELS_LOGIN_PASSWORD", "Mot de passe"),
-				Submit:      GetenvOrDefault("NESTOR_LABELS_LOGIN_SUBMIT", "Se connecter"),
-				ConnectWith: GetenvOrDefault("NESTOR_LABELS_LOGIN_CONNECT_WITH", "Se connecter avec"),
+			LoginPage: loginPage{
+				Title:       getenvOrDefault("NESTOR_LABELS_LOGIN_TITLE", "Se connecter à "+clientID),
+				Email:       getenvOrDefault("NESTOR_LABELS_LOGIN_EMAIL", "Email"),
+				Password:    getenvOrDefault("NESTOR_LABELS_LOGIN_PASSWORD", "Mot de passe"),
+				Submit:      getenvOrDefault("NESTOR_LABELS_LOGIN_SUBMIT", "Se connecter"),
+				ConnectWith: getenvOrDefault("NESTOR_LABELS_LOGIN_CONNECT_WITH", "Se connecter avec"),
 			},
 		},
 	}

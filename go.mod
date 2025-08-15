@@ -4,11 +4,12 @@ go 1.24.6
 
 require (
 	github.com/MicahParks/jwkset v0.9.6
+	github.com/MicahParks/keyfunc/v3 v3.6.1
 	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/couchbase/gocb/v2 v2.10.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/joho/godotenv v1.5.1
-	github.com/simonhege/server v0.2.0
+	github.com/simonhege/server v0.3.0
 	golang.org/x/crypto v0.41.0
 	golang.org/x/oauth2 v0.30.0
 )

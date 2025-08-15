@@ -3,6 +3,7 @@ package couchbase
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/couchbase/gocb/v2"
 	"github.com/simonhege/nestor/account"
@@ -23,7 +24,8 @@ func NewAccountStore(scope *gocb.Scope) (account.Store, error) {
 
 // GetByEmail implements account.Store.
 func (a *accountStore) GetByEmail(ctx context.Context, email string) (*account.Account, error) {
-	query := "SELECT id, email, name, picture, status, password_hash, created, updated_at FROM `" + a.collection.Name() + "` WHERE email = $email"
+	query := "SELECT acct.* FROM `" + a.collection.Name() +
+		"` as acct WHERE acct.email = $email"
 	parameters := map[string]interface{}{
 		"email": email,
 	}
@@ -32,12 +34,15 @@ func (a *accountStore) GetByEmail(ctx context.Context, email string) (*account.A
 		NamedParameters: parameters,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query accounts by email: %w", err)
 	}
 
 	var acct account.Account
 	if err := rows.One(&acct); err != nil {
-		return nil, err
+		if errors.Is(err, gocb.ErrNoResult) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to decode account: %w", err)
 	}
 	return &acct, nil
 }
@@ -58,10 +63,42 @@ func (a *accountStore) GetById(ctx context.Context, id string) (*account.Account
 	return &acct, nil
 }
 
+// GetByExternalRef implements account.Store.
+func (a *accountStore) GetByExternalRef(ctx context.Context, connector string, sub string) (*account.Account, error) {
+	query := "SELECT acct.* FROM `" + a.collection.Name() +
+		"` as acct WHERE ANY ref IN acct.external_refs SATISFIES ref.connector = $connector AND ref.sub = $sub END;"
+	parameters := map[string]interface{}{
+		"connector": connector,
+		"sub":       sub,
+	}
+
+	rows, err := a.scope.Query(query, &gocb.QueryOptions{
+		NamedParameters: parameters,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query accounts by external reference: %w", err)
+	}
+
+	var acct account.Account
+	if err := rows.One(&acct); err != nil {
+		if errors.Is(err, gocb.ErrNoResult) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to decode account: %w", err)
+	}
+	return &acct, nil
+}
+
 // Put implements account.Store.
 func (a *accountStore) Put(ctx context.Context, account account.Account) error {
 	_, err := a.collection.Upsert(account.ID, account, &gocb.UpsertOptions{
 		Expiry: 0, // No expiry
 	})
+	return err
+}
+
+// Delete implements account.Store.
+func (a *accountStore) Delete(ctx context.Context, id string) error {
+	_, err := a.collection.Remove(id, nil)
 	return err
 }

@@ -2,6 +2,7 @@ package couchbase
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/couchbase/gocb/v2"
 	"github.com/simonhege/nestor/privatekeys"
@@ -22,21 +23,21 @@ func NewPrivateKeyStore(scope *gocb.Scope) (privatekeys.Store, error) {
 
 // All implements privatekeys.Store.
 func (p privateKeyStore) All() ([]privatekeys.PrivateKey, error) {
-	rows, err := p.scope.Query("SELECT `kid`, `private_key` FROM `"+p.collection.Name()+"`", nil)
+	rows, err := p.scope.Query("SELECT k.* FROM `"+p.collection.Name()+"` as k", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query private keys: %w", err)
 	}
 
 	var keys []privatekeys.PrivateKey
 	for rows.Next() {
 		var key privatekeys.PrivateKey
 		if err := rows.Row(&key); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode private key: %w", err)
 		}
 		keys = append(keys, key)
 	}
 	if err := rows.Close(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to close rows: %w", err)
 	}
 
 	return keys, nil

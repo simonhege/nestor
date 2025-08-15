@@ -3,8 +3,8 @@ package connector
 import "os"
 
 func isGoogleConnectorEnabled() bool {
-	return os.Getenv("CONNECTOR_GOOGLE_CLIENT_ID") != "" &&
-		os.Getenv("CONNECTOR_GOOGLE_CLIENT_SECRET") != ""
+	return os.Getenv("NESTOR_CONNECTOR_GOOGLE_CLIENT_ID") != "" &&
+		os.Getenv("NESTOR_CONNECTOR_GOOGLE_CLIENT_SECRET") != ""
 }
 
 func googleConnector() C {
@@ -18,8 +18,8 @@ func googleConnector() C {
 		ColorHover: "hsl(150, 100%, 25%)",
 		Config: Config{
 			Issuer:       "https://accounts.google.com",
-			ClientID:     os.Getenv("CONNECTOR_GOOGLE_CLIENT_ID"),
-			ClientSecret: os.Getenv("CONNECTOR_GOOGLE_CLIENT_SECRET"),
+			ClientID:     os.Getenv("NESTOR_CONNECTOR_GOOGLE_CLIENT_ID"),
+			ClientSecret: os.Getenv("NESTOR_CONNECTOR_GOOGLE_CLIENT_SECRET"),
 		},
 	}
 }
