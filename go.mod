@@ -3,8 +3,8 @@ module github.com/simonhege/nestor
 go 1.24.6
 
 require (
-	github.com/MicahParks/jwkset v0.9.6
-	github.com/MicahParks/keyfunc/v3 v3.6.1
+	github.com/MicahParks/jwkset v0.11.0
+	github.com/MicahParks/keyfunc/v3 v3.6.2
 	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/couchbase/gocb/v2 v2.10.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
