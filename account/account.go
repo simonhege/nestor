@@ -13,6 +13,7 @@ type Account struct {
 	Name         string        `json:"name"`
 	Picture      string        `json:"picture"`
 	Status       AccountStatus `json:"status"`
+	Roles        []string      `json:"roles"`
 	PasswordHash []byte        `json:"password_hash,omitempty"` // Use nil if no password is set
 	ExternalRefs []ExternalRef `json:"external_refs,omitempty"` // References to external accounts
 

@@ -156,6 +156,7 @@ func (a *app) createSignedToken(ctx context.Context, audience string, account *a
 		"email_verified": true,
 		"name":           account.Name,
 		"picture":        account.Picture,
+		"roles":          account.Roles,
 	})
 	token.Header["kid"] = k.Marshal().KID
 

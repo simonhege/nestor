@@ -67,6 +67,7 @@ func newOpenIDConfiguration(issuer string, baseURL string) *openIDConfiguration 
 			"email_verified",
 			"name",
 			"picture",
+			"roles",
 		},
 	}
 }
