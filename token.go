@@ -12,7 +12,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/simonhege/nestor/account"
-	"github.com/simonhege/nestor/signed"
 	"github.com/simonhege/server"
 )
 
@@ -35,15 +34,19 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Retrieve the authorization data
-	var authData authorizationData
-	if err := signed.ReadCookie(req, "auth_data", &authData); err != nil {
+	authData, err := a.authStore.Get(ctx, code)
+	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve authorization data", "client_id", clientID, "code", code)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// Delete the cookie to prevent reuse
-	signed.DeleteCookie(w, "auth_data")
+	// Delete the authorization data to prevent reuse
+	if err := a.authStore.Delete(ctx, code); err != nil {
+		slog.ErrorContext(ctx, "Failed to delete authorization data", "client_id", clientID, "code", code)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 
 	if authData.ClientID != clientID {
 		slog.WarnContext(ctx, "Incorrect client id", "client_id", clientID, "authData.ClientID", authData.ClientID)

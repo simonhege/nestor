@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/simonhege/nestor/account"
+	"github.com/simonhege/nestor/auth"
 	"github.com/simonhege/nestor/csrf"
 	"github.com/simonhege/nestor/signed"
 )
@@ -126,7 +127,7 @@ func (a *app) handlePostAuthorize(w http.ResponseWriter, req *http.Request) {
 
 func (a *app) handleRedirect(ctx context.Context, w http.ResponseWriter, req *http.Request, oauthParams oAuthParams, acc *account.Account) {
 
-	authData := authorizationData{
+	authData := auth.AuthData{
 		ClientID:            oauthParams.ClientID,
 		Code:                rand.Text(),
 		CodeChallenge:       oauthParams.CodeChallenge,
@@ -137,7 +138,11 @@ func (a *app) handleRedirect(ctx context.Context, w http.ResponseWriter, req *ht
 	}
 
 	// Save the authorization data for token exchange in a same site strict cookie
-	signed.SetCookie(ctx, w, "auth_data", authData)
+	if err := a.authStore.Put(ctx, authData); err != nil {
+		slog.ErrorContext(ctx, "Failed to save auth data", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 
 	// Generate the code and redirect to the redirect_uri
 	params := url.Values{

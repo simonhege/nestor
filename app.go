@@ -5,6 +5,7 @@ import (
 
 	"github.com/MicahParks/jwkset"
 	"github.com/simonhege/nestor/account"
+	"github.com/simonhege/nestor/auth"
 	"github.com/simonhege/nestor/connector"
 	"github.com/simonhege/nestor/privatekeys"
 )
@@ -16,6 +17,7 @@ type app struct {
 	clients         map[string]client
 	connectors      []connector.C
 	accountStore    account.Store
+	authStore       auth.Store
 	privateKeyStore privatekeys.Store
 }
 
@@ -40,14 +42,4 @@ type loginPage struct {
 	Password    string `json:"password"`
 	Submit      string `json:"submit"`
 	ConnectWith string `json:"connect_with"`
-}
-
-type authorizationData struct {
-	ClientID            string
-	Code                string
-	CodeChallenge       string
-	CodeChallengeMethod string
-
-	GrantedScopes []string
-	AccountID     string
 }
