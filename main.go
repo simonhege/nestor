@@ -103,7 +103,7 @@ func main() {
 		return
 	}
 
-	s := server.New(2, 10, true)
+	s := server.New(true, server.RateLimiter(2, 10), server.RequestID, server.RequestLogger)
 	// Standard OIDC endpoints
 	s.HandleFunc("GET /.well-known/openid-configuration", a.handleOpenIDConfiguration)
 	s.HandleFunc("GET /.well-known/jwks.json", a.handleKeys)
