@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/simonhege/nestor/compare/v0.6.0...v0.6.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* add tests in ci ([ce1ec6a](https://github.com/simonhege/nestor/commit/ce1ec6ac9a4e7895c87850312feb218c22b5f8ca))
+
 ## [0.6.0](https://github.com/simonhege/nestor/compare/v0.5.0...v0.6.0) (2026-07-18)
 
 
