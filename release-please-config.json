@@ -3,7 +3,9 @@
   "release-type": "go",
   "packages": {
     ".": {
-      "package-name": "nestor"
+      "package-name": "nestor",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true
     }
   }
 }
