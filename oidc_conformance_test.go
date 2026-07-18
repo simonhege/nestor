@@ -145,7 +145,11 @@ func doTokenExchange(t *testing.T, baseURL, clientID, code, codeVerifier string)
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, body)
@@ -170,7 +174,11 @@ func TestDiscovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET openid-configuration: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
@@ -224,7 +232,11 @@ func TestJWKS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET jwks.json: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
@@ -271,7 +283,11 @@ func TestAuthorize_InvalidResponseType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /authorize: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
@@ -285,7 +301,11 @@ func TestAuthorize_UnknownClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /authorize: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
@@ -299,7 +319,11 @@ func TestAuthorize_InvalidRedirectURI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /authorize: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
@@ -320,7 +344,11 @@ func TestToken_UnsupportedGrantType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
@@ -387,7 +415,11 @@ func TestToken_AuthCode_WrongVerifier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
@@ -406,7 +438,11 @@ func TestToken_AuthCode_UnknownCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
@@ -429,7 +465,11 @@ func TestToken_AuthCode_ClientMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", resp.StatusCode)
@@ -461,7 +501,11 @@ func TestToken_AuthCode_InactiveAccount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("expected 403 for suspended account, got %d", resp.StatusCode)
@@ -529,7 +573,11 @@ func TestToken_IDTokenSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET jwks.json: %v", err)
 	}
-	defer jwksResp.Body.Close()
+	defer func() {
+		if err := jwksResp.Body.Close(); err != nil {
+			t.Fatalf("close JWKS response body: %v", err)
+		}
+	}()
 
 	var jwksBody struct {
 		Keys []struct {
@@ -619,7 +667,11 @@ func TestToken_Refresh_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -662,7 +714,11 @@ func TestToken_Refresh_Unknown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", resp.StatusCode)
@@ -694,7 +750,11 @@ func TestToken_Refresh_Expired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", resp.StatusCode)

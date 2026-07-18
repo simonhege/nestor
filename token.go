@@ -48,15 +48,15 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if err != nil {
-		if errors.Is(err, tokenErrBadRequest) {
+		if errors.Is(err, errBadRequest) {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
-		if errors.Is(err, tokenErrUnauthorized) {
+		if errors.Is(err, errUnauthorized) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if errors.Is(err, tokenErrForbidden) {
+		if errors.Is(err, errForbidden) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -70,9 +70,9 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 }
 
 var (
-	tokenErrBadRequest   = errors.New("bad request")
-	tokenErrUnauthorized = errors.New("unauthorized")
-	tokenErrForbidden    = errors.New("forbidden")
+	errBadRequest   = errors.New("bad request")
+	errUnauthorized = errors.New("unauthorized")
+	errForbidden    = errors.New("forbidden")
 )
 
 func (a *app) handleAuthorizationCodeGrant(ctx context.Context, clientID string, req *http.Request) (tokenResponse, error) {
@@ -80,7 +80,7 @@ func (a *app) handleAuthorizationCodeGrant(ctx context.Context, clientID string,
 	codeVerifier := req.FormValue("code_verifier")
 	if code == "" || codeVerifier == "" {
 		slog.WarnContext(ctx, "Missing code or code_verifier", "client_id", clientID)
-		return tokenResponse{}, tokenErrBadRequest
+		return tokenResponse{}, errBadRequest
 	}
 
 	authData, err := a.authStore.Get(ctx, code)
@@ -90,11 +90,11 @@ func (a *app) handleAuthorizationCodeGrant(ctx context.Context, clientID string,
 	}
 	if authData == nil {
 		slog.WarnContext(ctx, "Authorization code not found", "client_id", clientID, "code", code)
-		return tokenResponse{}, tokenErrBadRequest
+		return tokenResponse{}, errBadRequest
 	}
 	if authData.ClientID != clientID {
 		slog.WarnContext(ctx, "Incorrect client id", "client_id", clientID, "authData.ClientID", authData.ClientID)
-		return tokenResponse{}, tokenErrBadRequest
+		return tokenResponse{}, errBadRequest
 	}
 
 	codeChallengeResult, err := a.computeCodeChallenge(ctx, authData.CodeChallengeMethod, codeVerifier)
@@ -104,7 +104,7 @@ func (a *app) handleAuthorizationCodeGrant(ctx context.Context, clientID string,
 	}
 	if codeChallengeResult != authData.CodeChallenge {
 		slog.WarnContext(ctx, "Incorrect code challenge")
-		return tokenResponse{}, tokenErrBadRequest
+		return tokenResponse{}, errBadRequest
 	}
 
 	resp, err := a.issueTokens(ctx, clientID, authData.AccountID, authData.GrantedScopes)
@@ -124,7 +124,7 @@ func (a *app) handleRefreshTokenGrant(ctx context.Context, clientID string, req 
 	rawRefreshToken := req.FormValue("refresh_token")
 	if rawRefreshToken == "" {
 		slog.WarnContext(ctx, "Missing refresh token", "client_id", clientID)
-		return tokenResponse{}, tokenErrBadRequest
+		return tokenResponse{}, errBadRequest
 	}
 
 	tokenHash := hashToken(rawRefreshToken)
@@ -135,16 +135,16 @@ func (a *app) handleRefreshTokenGrant(ctx context.Context, clientID string, req 
 	}
 	if storedRefreshData == nil {
 		slog.WarnContext(ctx, "Unknown refresh token", "client_id", clientID)
-		return tokenResponse{}, tokenErrUnauthorized
+		return tokenResponse{}, errUnauthorized
 	}
 
 	if storedRefreshData.ClientID != clientID {
 		slog.WarnContext(ctx, "Refresh token client mismatch", "client_id", clientID, "stored_client_id", storedRefreshData.ClientID)
-		return tokenResponse{}, tokenErrBadRequest
+		return tokenResponse{}, errBadRequest
 	}
 	if time.Now().After(storedRefreshData.ExpiresAt) {
 		slog.WarnContext(ctx, "Refresh token expired", "client_id", clientID)
-		return tokenResponse{}, tokenErrUnauthorized
+		return tokenResponse{}, errUnauthorized
 	}
 
 	resp, err := a.issueTokens(ctx, clientID, storedRefreshData.AccountID, storedRefreshData.GrantedScopes)
@@ -168,11 +168,11 @@ func (a *app) issueTokens(ctx context.Context, clientID, accountID string, grant
 	}
 	if acc == nil {
 		slog.WarnContext(ctx, "Account not found", "account_id", accountID)
-		return tokenResponse{}, tokenErrUnauthorized
+		return tokenResponse{}, errUnauthorized
 	}
 	if acc.Status != account.StatusActive {
 		slog.WarnContext(ctx, "Account not active", "account_id", acc.ID, "status", acc.Status)
-		return tokenResponse{}, tokenErrForbidden
+		return tokenResponse{}, errForbidden
 	}
 
 	client, err := a.getClient(ctx, clientID)
@@ -182,7 +182,7 @@ func (a *app) issueTokens(ctx context.Context, clientID, accountID string, grant
 	}
 	if client == nil {
 		slog.WarnContext(ctx, "Client not found", "client_id", clientID)
-		return tokenResponse{}, tokenErrUnauthorized
+		return tokenResponse{}, errUnauthorized
 	}
 
 	accessToken, err := a.createSignedToken(ctx, client.DefaultResourceIndicator, acc)
