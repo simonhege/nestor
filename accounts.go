@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 )
-
-var errUnauthorized = errors.New("unauthorized")
 
 func (a *app) getTokenFromRequest(req *http.Request) (*jwt.Token, error) {
 	// Extract the JWT token from the Authorization header
