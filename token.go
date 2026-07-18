@@ -2,17 +2,26 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
+	"slices"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/simonhege/nestor/account"
+	"github.com/simonhege/nestor/refresh"
 	"github.com/simonhege/server"
+)
+
+const (
+	accessTokenTTL  = 1 * time.Hour
+	refreshTokenTTL = 30 * 24 * time.Hour
 )
 
 func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
@@ -22,100 +31,203 @@ func (a *app) handleToken(w http.ResponseWriter, req *http.Request) {
 	slog.DebugContext(ctx, "token request received", "request", string(b))
 
 	clientID := req.FormValue("client_id")
-	// redirect_uri := req.FormValue("redirect_uri") // TODO why do we receive a redirect uri?
 	grantType := req.FormValue("grant_type")
-	code := req.FormValue("code")
-	codeVerifier := req.FormValue("code_verifier")
+	var (
+		resp tokenResponse
+		err  error
+	)
 
-	if grantType != "authorization_code" {
+	switch grantType {
+	case "authorization_code":
+		resp, err = a.handleAuthorizationCodeGrant(ctx, clientID, req)
+	case "refresh_token":
+		resp, err = a.handleRefreshTokenGrant(ctx, clientID, req)
+	default:
 		slog.WarnContext(ctx, "Unsupported grant_type", "client_id", clientID, "grant_type", grantType)
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
+	if err != nil {
+		if errors.Is(err, tokenErrBadRequest) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, tokenErrUnauthorized) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if errors.Is(err, tokenErrForbidden) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 
-	// Retrieve the authorization data
+		slog.ErrorContext(ctx, "Token request failed", "client_id", clientID, "grant_type", grantType, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	server.RenderJSON(w, resp)
+}
+
+var (
+	tokenErrBadRequest   = errors.New("bad request")
+	tokenErrUnauthorized = errors.New("unauthorized")
+	tokenErrForbidden    = errors.New("forbidden")
+)
+
+func (a *app) handleAuthorizationCodeGrant(ctx context.Context, clientID string, req *http.Request) (tokenResponse, error) {
+	code := req.FormValue("code")
+	codeVerifier := req.FormValue("code_verifier")
+	if code == "" || codeVerifier == "" {
+		slog.WarnContext(ctx, "Missing code or code_verifier", "client_id", clientID)
+		return tokenResponse{}, tokenErrBadRequest
+	}
+
 	authData, err := a.authStore.Get(ctx, code)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve authorization data", "client_id", clientID, "code", code)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		slog.ErrorContext(ctx, "Failed to retrieve authorization data", "client_id", clientID, "code", code, "error", err)
+		return tokenResponse{}, err
 	}
-
-	// Delete the authorization data to prevent reuse
-	if err := a.authStore.Delete(ctx, code); err != nil {
-		slog.ErrorContext(ctx, "Failed to delete authorization data", "client_id", clientID, "code", code)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+	if authData == nil {
+		slog.WarnContext(ctx, "Authorization code not found", "client_id", clientID, "code", code)
+		return tokenResponse{}, tokenErrBadRequest
 	}
-
 	if authData.ClientID != clientID {
 		slog.WarnContext(ctx, "Incorrect client id", "client_id", clientID, "authData.ClientID", authData.ClientID)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
+		return tokenResponse{}, tokenErrBadRequest
 	}
 
-	// Compute the hash from the generated code and compare
 	codeChallengeResult, err := a.computeCodeChallenge(ctx, authData.CodeChallengeMethod, codeVerifier)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to compute code challenge", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return tokenResponse{}, err
 	}
 	if codeChallengeResult != authData.CodeChallenge {
 		slog.WarnContext(ctx, "Incorrect code challenge")
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
+		return tokenResponse{}, tokenErrBadRequest
 	}
 
-	// Retrieve the account associated with the authorization data
-	acc, err := a.accountStore.GetById(ctx, authData.AccountID)
+	resp, err := a.issueTokens(ctx, clientID, authData.AccountID, authData.GrantedScopes)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve account", "account_id", authData.AccountID, "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return tokenResponse{}, err
+	}
+
+	if err := a.authStore.Delete(ctx, code); err != nil {
+		slog.ErrorContext(ctx, "Failed to delete authorization data", "client_id", clientID, "code", code, "error", err)
+		return tokenResponse{}, err
+	}
+
+	return resp, nil
+}
+
+func (a *app) handleRefreshTokenGrant(ctx context.Context, clientID string, req *http.Request) (tokenResponse, error) {
+	rawRefreshToken := req.FormValue("refresh_token")
+	if rawRefreshToken == "" {
+		slog.WarnContext(ctx, "Missing refresh token", "client_id", clientID)
+		return tokenResponse{}, tokenErrBadRequest
+	}
+
+	tokenHash := hashToken(rawRefreshToken)
+	storedRefreshData, err := a.refreshStore.Get(ctx, tokenHash)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to retrieve refresh token", "client_id", clientID, "error", err)
+		return tokenResponse{}, err
+	}
+	if storedRefreshData == nil {
+		slog.WarnContext(ctx, "Unknown refresh token", "client_id", clientID)
+		return tokenResponse{}, tokenErrUnauthorized
+	}
+
+	if storedRefreshData.ClientID != clientID {
+		slog.WarnContext(ctx, "Refresh token client mismatch", "client_id", clientID, "stored_client_id", storedRefreshData.ClientID)
+		return tokenResponse{}, tokenErrBadRequest
+	}
+	if time.Now().After(storedRefreshData.ExpiresAt) {
+		slog.WarnContext(ctx, "Refresh token expired", "client_id", clientID)
+		return tokenResponse{}, tokenErrUnauthorized
+	}
+
+	resp, err := a.issueTokens(ctx, clientID, storedRefreshData.AccountID, storedRefreshData.GrantedScopes)
+	if err != nil {
+		return tokenResponse{}, err
+	}
+
+	if err := a.refreshStore.Delete(ctx, tokenHash); err != nil {
+		slog.ErrorContext(ctx, "Failed to rotate refresh token (delete old)", "client_id", clientID, "error", err)
+		return tokenResponse{}, err
+	}
+
+	return resp, nil
+}
+
+func (a *app) issueTokens(ctx context.Context, clientID, accountID string, grantedScopes []string) (tokenResponse, error) {
+	acc, err := a.accountStore.GetById(ctx, accountID)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to retrieve account", "account_id", accountID, "error", err)
+		return tokenResponse{}, err
 	}
 	if acc == nil {
-		slog.WarnContext(ctx, "Account not found", "account_id", authData.AccountID)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		slog.WarnContext(ctx, "Account not found", "account_id", accountID)
+		return tokenResponse{}, tokenErrUnauthorized
 	}
-
 	if acc.Status != account.StatusActive {
 		slog.WarnContext(ctx, "Account not active", "account_id", acc.ID, "status", acc.Status)
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
+		return tokenResponse{}, tokenErrForbidden
 	}
 
-	// Retrieve the client information
 	client, err := a.getClient(ctx, clientID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve client", "client_id", clientID, "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return tokenResponse{}, err
+	}
+	if client == nil {
+		slog.WarnContext(ctx, "Client not found", "client_id", clientID)
+		return tokenResponse{}, tokenErrUnauthorized
 	}
 
 	accessToken, err := a.createSignedToken(ctx, client.DefaultResourceIndicator, acc)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to create signed token", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		slog.ErrorContext(ctx, "Failed to create access token", "client_id", clientID, "error", err)
+		return tokenResponse{}, err
 	}
 
 	idToken, err := a.createSignedToken(ctx, clientID, acc)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to create signed token", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		slog.ErrorContext(ctx, "Failed to create ID token", "client_id", clientID, "error", err)
+		return tokenResponse{}, err
 	}
 
 	resp := tokenResponse{
 		AccessToken: accessToken,
 		TokenType:   "Bearer",
-		ExpiresIn:   3600, // 1 hour
+		ExpiresIn:   int(accessTokenTTL.Seconds()),
 		IDToken:     idToken,
 	}
 
-	server.RenderJSON(w, resp)
+	if slices.Contains(grantedScopes, "offline_access") {
+		rawRefreshToken := rand.Text()
+		tNow := time.Now()
+		refreshData := refresh.Data{
+			TokenHash:     hashToken(rawRefreshToken),
+			ClientID:      clientID,
+			AccountID:     acc.ID,
+			GrantedScopes: grantedScopes,
+			CreatedAt:     tNow,
+			ExpiresAt:     tNow.Add(refreshTokenTTL),
+		}
+		if err := a.refreshStore.Put(ctx, refreshData); err != nil {
+			slog.ErrorContext(ctx, "Failed to persist refresh token", "client_id", clientID, "error", err)
+			return tokenResponse{}, err
+		}
+		resp.RefreshToken = rawRefreshToken
+	}
+
+	return resp, nil
+}
+
+func hashToken(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 func (a *app) computeCodeChallenge(context context.Context, method string, generatedCode string) (string, error) {
@@ -154,7 +266,7 @@ func (a *app) createSignedToken(ctx context.Context, audience string, account *a
 		"auth_time":      tNow.Unix(),
 		"nbf":            tNow.Unix(),
 		"sub":            account.ID,
-		"exp":            tNow.Add(24 * time.Hour).Unix(),
+		"exp":            tNow.Add(accessTokenTTL).Unix(),
 		"email":          account.Email,
 		"email_verified": true,
 		"name":           account.Name,

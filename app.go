@@ -8,6 +8,7 @@ import (
 	"github.com/simonhege/nestor/auth"
 	"github.com/simonhege/nestor/connector"
 	"github.com/simonhege/nestor/privatekeys"
+	"github.com/simonhege/nestor/refresh"
 )
 
 type app struct {
@@ -18,6 +19,7 @@ type app struct {
 	connectors      []connector.C
 	accountStore    account.Store
 	authStore       auth.Store
+	refreshStore    refresh.Store
 	privateKeyStore privatekeys.Store
 }
 

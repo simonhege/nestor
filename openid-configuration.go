@@ -35,6 +35,7 @@ func newOpenIDConfiguration(issuer string, baseURL string) *openIDConfiguration 
 		ScopesSupported: []string{
 			"openid",
 			"email",
+			"offline_access",
 		},
 		ResponseTypesSupported: []string{
 			"code",
@@ -47,6 +48,7 @@ func newOpenIDConfiguration(issuer string, baseURL string) *openIDConfiguration 
 		},
 		GrantTypesSupported: []string{
 			"authorization_code",
+			"refresh_token",
 			"implicit",
 		},
 		SubjectTypesSupported: []string{

@@ -14,6 +14,7 @@ import (
 	"github.com/simonhege/nestor/auth"
 	"github.com/simonhege/nestor/connector"
 	"github.com/simonhege/nestor/privatekeys"
+	"github.com/simonhege/nestor/refresh"
 	"github.com/simonhege/nestor/stores/couchbase"
 	"github.com/simonhege/nestor/stores/memory"
 	"github.com/simonhege/server"
@@ -33,6 +34,7 @@ func main() {
 
 	var accountStore account.Store
 	var authStore auth.Store
+	var refreshStore refresh.Store
 	var privateKeyStore privatekeys.Store
 	if os.Getenv("COUCHBASE_CONNECTION_STRING") != "" {
 		scope, closeFunc, err := couchbase.Connect()
@@ -57,6 +59,12 @@ func main() {
 			return
 		}
 
+		refreshStore, err = couchbase.NewRefreshStore(scope)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to create Couchbase refresh store", "error", err)
+			return
+		}
+
 		privateKeyStore, err = couchbase.NewPrivateKeyStore(scope)
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to create Couchbase private key store", "error", err)
@@ -71,6 +79,9 @@ func main() {
 		authStore = &memory.AuthStore{
 			Data: make(map[string]auth.AuthData),
 		}
+		refreshStore = &memory.RefreshStore{
+			Data: make(map[string]refresh.Data),
+		}
 		privateKeyStore = &memory.PrivateKeyStore{}
 	}
 
@@ -82,6 +93,7 @@ func main() {
 		clients:         make(map[string]client),
 		accountStore:    accountStore,
 		authStore:       authStore,
+		refreshStore:    refreshStore,
 		privateKeyStore: privateKeyStore,
 	}
 	a.initConnectors()
