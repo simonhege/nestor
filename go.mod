@@ -3,7 +3,7 @@ module github.com/simonhege/nestor
 go 1.26.0
 
 require (
-	github.com/MicahParks/jwkset v0.11.0
+	github.com/MicahParks/jwkset v0.11.1
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/coreos/go-oidc/v3 v3.20.0
 	github.com/couchbase/gocb/v2 v2.12.4
