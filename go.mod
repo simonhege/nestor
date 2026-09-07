@@ -6,7 +6,7 @@ require (
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/coreos/go-oidc/v3 v3.20.0
-	github.com/couchbase/gocb/v2 v2.12.4
+	github.com/couchbase/gocb/v2 v2.12.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/joho/godotenv v1.5.1
 	github.com/simonhege/server v0.5.0
@@ -16,7 +16,7 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/couchbase/gocbcore/v10 v10.9.3 // indirect
+	github.com/couchbase/gocbcore/v10 v10.9.4 // indirect
 	github.com/couchbase/gocbcoreps v0.1.5-0.20260107140814-1c3a03f888f8 // indirect
 	github.com/couchbase/goprotostellar v1.0.6-0.20260407143512-d7af25156dcc // indirect
 	github.com/couchbaselabs/gocbconnstr/v2 v2.0.0 // indirect
